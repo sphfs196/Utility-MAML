@@ -165,7 +165,7 @@ class MAML:
             self.total_losses3 = total_losses3 = lossesa
             self.total_losses4 = total_losses4 = lossesb
             self.total_loss1 = total_loss1 = tf.reduce_sum(lossesa) / tf.compat.v1.to_float(FLAGS.meta_batch_size)
-            alpha = 0.01
+            alpha = 1
             print('alpha = ', alpha)
             self.total_losses2 = total_losses2 = [tf.math.log(tf.reduce_sum(tf.math.exp(alpha * (lossesb[j])))) for j in range(num_updates)]
             
