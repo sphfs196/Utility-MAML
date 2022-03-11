@@ -157,22 +157,14 @@ def trial(model, saver, sess, exp_string, data_generator, TR_MAML=False, resume_
         meta_learn_rate = 0
         
     if FLAGS.train:
-        # print('resume_itr = ', 0)
-        # print('FLAGS.pretrain_iterations = ', FLAGS.pretrain_iterations)
-        # print('FLAGS.metatrain_iterations = ', FLAGS.metatrain_iterations)
         range_iters = range(resume_itr, FLAGS.pretrain_iterations + FLAGS.metatrain_iterations+1)
-        # print('range_iters = ', range_iters)
     else:
         range_iters = range(1)
-        # print('not train, range_iters = ', range_iters)
     
     for itr in range_iters:
         feed_dict = {}
         if 'generate' in dir(data_generator):
             batch_x, batch_y, amp, phase, idx = data_generator.generate(train=True,val=False)
-            # print('idx = ', idx)
-            # print('batch_x.shape = ', batch_x.shape)
-            # print('batch_y.shape = ', batch_y.shape)
 
             if FLAGS.baseline == 'oracle':
                 batch_x = np.concatenate([batch_x, np.zeros([batch_x.shape[0], batch_x.shape[1], 2])], 2)
@@ -180,39 +172,24 @@ def trial(model, saver, sess, exp_string, data_generator, TR_MAML=False, resume_
                     batch_x[i, :, 1] = amp[i]
                     batch_x[i, :, 2] = phase[i]
 
-            # print('num_classes = ', num_classes)
-            # print('FLAGS.uupdate_batch_size = ', FLAGS.update_batch_size)
-
             inputa = batch_x[:, :num_classes*FLAGS.update_batch_size, :]
             labela = batch_y[:, :num_classes*FLAGS.update_batch_size, :]
             inputb = batch_x[:, num_classes*FLAGS.update_batch_size:, :] # b used for testing
             labelb = batch_y[:, num_classes*FLAGS.update_batch_size:, :]
             feed_dict = {model.inputa: inputa, model.inputb: inputb,  model.labela: labela, model.labelb: labelb, model.idx:idx, model.pweights:p,model.meta_lr:meta_learn_rate } #, model.meta_lr:0
 
-            # print('inputa.shape = ', inputa.shape)
-            # print('inputb.shape = ', inputb.shape)
-
         if itr < FLAGS.pretrain_iterations:
-            # print('pretrain_op!!!!!')
             input_tensors = [model.pretrain_op]
         else:
-            # print('metatrain_op!!!!!')
             input_tensors = [model.metatrain_op]
-            # input_tensors = []
              
         if (itr % SUMMARY_INTERVAL == 0 or itr % PRINT_INTERVAL == 0 or 1):
-#             input_tensors.extend([model.summ_op, model.total_loss1, model.total_losses2[FLAGS.num_updates-1]])
             input_tensors.extend([model.total_losses3, model.total_losses4, model.total_loss1, model.total_losses2[FLAGS.num_updates-1]])
             
             if model.classification:
                 input_tensors.extend([model.total_accuracy1, model.total_accuracies2[FLAGS.num_updates-1]])
 
-        # print('input_tensors = ', input_tensors)
-        # print('len(input_tensors) = ', len(input_tensors))
         result = sess.run(input_tensors, feed_dict)
-        # print('result = ', result)
-        # print('loss3 shape = ', result[1].shape)
-        # print('loss4 shape = ', result[2].shape)
         
         if (FLAGS.TR_MAML and FLAGS.train):
             real_p = p/num_tasks_mtrain
@@ -226,16 +203,8 @@ def trial(model, saver, sess, exp_string, data_generator, TR_MAML=False, resume_
                 train_writer.add_summary(result[1], itr)
             postlosses.append(result[-1])
             for i in range(FLAGS.meta_batch_size):
-                # idx_counts : 131行，idx_counts = np.ones(100)，每個都從1開始算
-                # idx = data_geneator傳出來的最後一個參數tasks，是用來產生amp聯集的數字
-                # 我猜是把有用到的amp的loss記錄起來(用+=全加起來)，沒有用到的就維持=0。
-                # idx_count應該是計算這個amp被用到了幾次
                 idx_counts[idx[i]] = math.floor(idx_counts[idx[i]]+1)
                 postloss_by_idx[idx[i]] += result[-3][0][i]
-        # print('idx_counts = ', idx_counts)
-        # print('before PRINT_INTERVAL, postloss_by_idx = ', postloss_by_idx)
-        # print('before PRINT_INTERVAL, postloss_by_idx.shape = ', postloss_by_idx.shape)
-
 
         if itr % PRINT_INTERVAL == 0:
             if itr < FLAGS.pretrain_iterations:
@@ -246,28 +215,23 @@ def trial(model, saver, sess, exp_string, data_generator, TR_MAML=False, resume_
                 train_max[iter_ind] = np.max(result[-3][0])
                 train_mean[iter_ind] = np.mean(result[-3][0])
             else:
-                # 因為剛剛把有用到的都加起來了，所以現在要比較之前要先平均。因為這裡要用來算平均所以idx_counts才會從1開始。
                 postloss_by_idx = np.divide(postloss_by_idx, idx_counts)
                 train_max[iter_ind] = np.max(postloss_by_idx)
                 train_mean[iter_ind] = np.mean(postloss_by_idx)
             
-            # 不太懂為什麼要印出argmax()。他想比較什麼???
             print_str += ': ' + str(train_max[iter_ind]) + ', ' + str(train_mean[iter_ind]) + ', ' + str(np.argmax(postloss_by_idx))
             print(print_str)
             postlosses = []
             postloss_by_idx = 0*postloss_by_idx
             idx_counts = 0.1*np.ones(num_tasks_mtrain)
-            # print('PRINT_INTERVAl over')
 
         if (itr!=0) and itr % SAVE_INTERVAL == 0 and FLAGS.train:
             print(p)
             print("saving" + str(itr))
             saver.save(sess, FLAGS.logdir + '/' + exp_string + '/model' + str(itr))
         
-        if itr % VAL_INTERVAL == 0 :# and itr != 0 :# and FLAGS.datasource !='sinusoid':
-            # print('NUM_TEST_POINTS = ', NUM_TEST_POINTS)
+        if itr % VAL_INTERVAL == 0 :
             for jj in range(NUM_TEST_POINTS):
-                # print('jj = ', jj)
                 if 'generate' not in dir(data_generator):
                     feed_dict = {}
                     if model.classification:
@@ -288,8 +252,6 @@ def trial(model, saver, sess, exp_string, data_generator, TR_MAML=False, resume_
                         input_tensors = [model.outputbs[FLAGS.num_updates-1], model.total_losses4, model.total_loss1, model.total_losses2[FLAGS.num_updates-1]]
      
                 result = sess.run(input_tensors, feed_dict)
-                # pred = np.asarray(result[-4][0])
-                # np.savetxt("gdrive/My Drive/maml/logs_sine/preds111.csv", pred, delimiter=",")
                 valstd += np.std(result[-3][0])
                 valmean += np.mean(result[-3][0])
                 valmax += np.max(result[-3][0])
@@ -298,10 +260,6 @@ def trial(model, saver, sess, exp_string, data_generator, TR_MAML=False, resume_
                     val_idx_counts[idx[i]] = math.floor(val_idx_counts[idx[i]] + 1)
                     val_losses[idx[i]] += result[-3][0][i]
             
-            # val_means.append(np.mean(result[-3][0]))
-            # val_maxs.append(np.max(result[-3][0]))
-            # val_stds.append(np.std(result[-3][0]))
-            # accs.append(result[-3][0])
 
             if itr % TEST_PRINT_INTERVAL == 0 and FLAGS.train:
 
@@ -310,9 +268,6 @@ def trial(model, saver, sess, exp_string, data_generator, TR_MAML=False, resume_
                     val_std[iter_ind] = np.std(result[-3][0])
                     val_mean[iter_ind] = np.mean(result[-3][0])
                 else:
-                    # val_max[iter_ind] = valmax
-                    # val_std[iter_ind] = valstd
-                    # val_mean[iter_ind] = valmean
                     
                     val_losses = np.divide(val_losses, val_idx_counts)
                     val_max[iter_ind] = np.max(val_losses)
@@ -328,8 +283,6 @@ def trial(model, saver, sess, exp_string, data_generator, TR_MAML=False, resume_
                 val_losses = 0*val_losses
                 val_idx_counts = 0.1*np.ones(490)
 
-                # print('VAL_INTERVAL over!')
-                
     if FLAGS.train:
         saver.save(sess, FLAGS.logdir + '/' + exp_string +  '/model' + str(itr))
         np.savetxt("logs_stats/train_mean" +str(FLAGS.log_number) + ".csv", train_mean, delimiter=",")
@@ -357,16 +310,13 @@ def trial(model, saver, sess, exp_string, data_generator, TR_MAML=False, resume_
         print(np.std(val_losses))
 
         np.savetxt("logs_stats/test_accs"+str(FLAGS.log_number)+".csv", val_losses, delimiter=",")
-    # print("finish")
 
 def main():
     if FLAGS.datasource == 'sinusoid':
         if FLAGS.train:
             test_num_updates = 1#5
-            # print('test_num_updates = ', test_num_updates)
         else:
             test_num_updates = 1#10
-            # print('test_num_updates = ', test_num_updates)
     else:
         if FLAGS.datasource == 'miniimagenet':
             if FLAGS.train == True:
@@ -387,13 +337,13 @@ def main():
             assert FLAGS.update_batch_size == 1
             data_generator = DataGenerator(1, FLAGS.meta_batch_size)  # only use one datapoint,
         else:
-            if FLAGS.datasource == 'miniimagenet': # TODO - use 15 val examples for imagenet?
+            if FLAGS.datasource == 'miniimagenet':
                 if FLAGS.train:
-                    data_generator = DataGenerator(FLAGS.update_batch_size+15, FLAGS.meta_batch_size)  # only use one datapoint for testing to save memory
+                    data_generator = DataGenerator(FLAGS.update_batch_size+15, FLAGS.meta_batch_size)
                 else:
-                    data_generator = DataGenerator(FLAGS.update_batch_size*2, FLAGS.meta_batch_size)  # only use one datapoint for testing to save memory
+                    data_generator = DataGenerator(FLAGS.update_batch_size*2, FLAGS.meta_batch_size)
             else:
-                data_generator = DataGenerator(FLAGS.update_batch_size*2, FLAGS.meta_batch_size)  # only use one datapoint for testing to save memory
+                data_generator = DataGenerator(FLAGS.update_batch_size*2, FLAGS.meta_batch_size)
 
     dim_output = data_generator.dim_output
     if FLAGS.baseline == 'oracle':
@@ -431,7 +381,6 @@ def main():
     test_num_updates = 1
     model = MAML(dim_input, dim_output,test_num_updates=1)
     if FLAGS.train or not tf_data_load: 
-        # print('input_tensors = ', input_tensors)
         # sine : input_tensors = None
         model.construct_model(input_tensors=input_tensors, prefix='metatrain_')
     if tf_data_load:

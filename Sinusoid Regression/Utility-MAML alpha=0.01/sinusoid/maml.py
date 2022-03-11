@@ -125,8 +125,7 @@ class MAML:
                 # losssp = self.loss_func(outputp, labelb)
                 # task_lossesbp.append(losssp)
 
-                print('num_updates in meta_learn = ', num_updates)
-                for j in range(num_updates - 1): # sine num_update = 1, 這邊會變 for j in range(0), 直接跳過
+                for j in range(num_updates - 1):
                     loss = self.loss_func(self.forward(inputa, fast_weights, reuse=True), labela)
                     grads = tf.gradients(loss, list(fast_weights.values()))
                     if FLAGS.stop_grad:
@@ -146,7 +145,6 @@ class MAML:
                     task_output.extend([task_accuracya, task_accuraciesb])
 
                 return task_output
-                ### task_metalearn over!!!
 
             if FLAGS.norm is not 'None':
                 # to initialize the batch norm vars, might want to combine this, and not run idx 0 twice.
@@ -156,29 +154,20 @@ class MAML:
 #             out_dtype = [tf.float32, tf.float32, tf.float32, tf.float32, tf.float32]
             if self.classification:
                 out_dtype.extend([tf.float32, [tf.float32]*num_updates])
-            print('self.inputa = ', self.inputa) # placeholder, 其他的應該也是(input b, label a, label b)
             result = tf.map_fn(task_metalearn, elems=(self.inputa, self.inputb, self.labela, self.labelb, self.idx), dtype=out_dtype, parallel_iterations=FLAGS.meta_batch_size)#FLAGS.meta_batch_size
-            print('task_metalearn over, result = ', result)
             if self.classification:
-                print('classification')
                 outputas, outputbs, lossesa, lossesb, accuraciesa, accuraciesb = result
             else:
-                print('not classification') # <- sine
                 outputas, outputbs, lossesa, lossesb = result
-                print('outputas = ', outputas) # shape = (?, ?, 1), 應該是(batch, 點數, 1)
-                print('lossesa = ', lossesa) # shape = (?,), 我猜是(batch,)
 
         ## Performance & Optimization
         if 'train' in prefix:
             self.total_losses3 = total_losses3 = lossesa
             self.total_losses4 = total_losses4 = lossesb
             self.total_loss1 = total_loss1 = tf.reduce_sum(lossesa) / tf.compat.v1.to_float(FLAGS.meta_batch_size)
-#             self.total_losses2 = total_losses2 = tf.reduce_sum(lossesb) / tf.compat.v1.to_float(FLAGS.meta_batch_size)
-            # self.total_losses2 = total_losses2 = [tf.reduce_sum(lossesb[j]) / tf.compat.v1.to_float(FLAGS.meta_batch_size) for j in range(num_updates)]
             alpha = 0.01
             print('alpha = ', alpha)
             self.total_losses2 = total_losses2 = [tf.math.log(tf.reduce_sum(tf.math.exp(alpha * (lossesb[j])))) for j in range(num_updates)]
-            # self.total_losses2 = total_losses2 = [tf.reduce_sum(lossesb[j]) / tf.compat.v1.to_float(FLAGS.meta_batch_size) for j in range(num_updates)]
             
             self.outputas, self.outputbs = outputas, outputbs
             if self.classification:

@@ -162,12 +162,10 @@ class DataGenerator(object):
 
     def generate_sinusoid_batch(self, train=True, val=False, input_idx=None):
         num_batch=self.batch_size
-        # print('num_batch = ', num_batch)
         if train and not val:
             num_samples = self.num_samples_per_class
         else:
             num_samples = int(self.num_samples_per_class/2) + 1000
-        # print('num_samples = ', num_samples)
         outputs = np.zeros([num_batch, num_samples, self.dim_output])
         init_inputs = np.zeros([num_batch, num_samples, self.dim_input])
         # num_samples = 5 + 200
@@ -178,7 +176,6 @@ class DataGenerator(object):
         if train and not val:
             funcs = np.random.choice(100, num_batch, replace='true')
         else:
-            # 490是上限，應該是0-490的意思。replace=True表可以抽重複的數字。
             funcs = np.random.choice(490, num_batch, replace='true')
         tasks = np.zeros([num_batch,1])
         # generate each task (here corresponds to samples from sin function)
@@ -199,7 +196,4 @@ class DataGenerator(object):
             outputs[idx] = amp[idx] * np.sin(init_inputs[idx]-phase[idx])
             tasks[idx] = func
         tasks = tasks.astype(int)
-        # print('tasks = ', tasks)
-        # print('amp = ', amp)
-        # print('init_inputs shape = ', init_inputs.shape)
         return init_inputs, outputs, amp, phase, tasks
