@@ -15,3 +15,6 @@ This code rewuires the following:
 ## Usage
 ### Gaussian Processes Regression
 You can run the code on [jupyter noteook](https://jupyter.org/install.html).
+
+### Sinusoid Regression
+See the Readme file in each algorithm folder.
