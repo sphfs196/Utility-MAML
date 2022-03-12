@@ -11,6 +11,8 @@ This code rewuires the following:
 - cudnn 7.6.5
 - [emukit](https://github.com/EmuKit/emukit) 0.4.7
 - [gpy](https://gpy.readthedocs.io/en/deploy/) 1.9.9
+- matplotlib 3.3
+- numpy 1.19
 
 ## Usage
 ### Gaussian Processes Regression
