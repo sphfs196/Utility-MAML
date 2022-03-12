@@ -2,7 +2,7 @@
 This repo includes code for running Gaussian Processes Regression experiments and Sinusoid Regression experiments by MAML, TRMAML, and Utility-MAML. We borrowed the code from [Attentive Neural Process](https://github.com/deepmind/neural-processes).
 
 ## Dependencies
-This code rewuires the following: 
+This code reuires the following: 
 
 - python 3.7
 - TensorFlow 1.13.1
